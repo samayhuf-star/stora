@@ -1,0 +1,20 @@
+# Production-style stack: Postgres + web + separate worker (scale the worker with --scale worker=N).
+services:
+  db:
+    image: postgres:16
+    environment: { POSTGRES_USER: stora, POSTGRES_PASSWORD: stora, POSTGRES_DB: stora }
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U stora"], interval: 5s, retries: 10 }
+  web:
+    build: { context: ., dockerfile: Dockerfile.launch }
+    env_file: .env
+    environment: { DATABASE_URL: postgres://stora:stora@db:5432/stora, STORA_EMBEDDED_WORKER: "0" }
+    ports: ["3000:3000"]
+    depends_on: { db: { condition: service_healthy } }
+  worker:
+    build: { context: ., dockerfile: Dockerfile.launch }
+    command: ["pnpm","--filter","@stora-sh/worker","start"]
+    env_file: .env
+    environment: { DATABASE_URL: postgres://stora:stora@db:5432/stora }
+    depends_on: { db: { condition: service_healthy } }
+volumes: { pgdata: {} }

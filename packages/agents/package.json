@@ -1,0 +1,36 @@
+{
+  "name": "@stora-sh/agents",
+  "version": "0.1.0",
+  "description": "Multi-agent launch copilot for mobile apps: a supervisor that plans and runs Scout, Compliance, ASO, Listing, Screenshot and Critic agents on top of the Stora packages",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@stora-sh/analyzer": "workspace:*",
+    "@stora-sh/aso": "workspace:*",
+    "@stora-sh/compliance": "workspace:*",
+    "socket.io-client": "^4.7.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "express": "^4.18.2",
+    "@types/express": "^4.17.21",
+    "socket.io": "^4.7.4",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "license": "MIT"
+}

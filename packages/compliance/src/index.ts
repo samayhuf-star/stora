@@ -55,8 +55,9 @@ export {
   isAIEvaluationAvailable,
 } from './ai-evaluator.js';
 
-// Re-export dynamic compliance testing
-export * from './dynamic';
+// NOTE: dynamic compliance testing (./dynamic) depends on the private
+// `mobile-use` package, which is not present in the public repo. It is no
+// longer re-exported from the main entry so the static analyzer stays usable.
 export * from './observers';
 export * from './vision';
 export * from './rules';

@@ -1,0 +1,23 @@
+{
+  "name": "@stora-sh/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone worker process: claims queued runs from Postgres and executes the agent team",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch --onSuccess \"node dist/index.js\"",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@stora-sh/db": "workspace:*",
+    "@stora-sh/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2"
+  }
+}

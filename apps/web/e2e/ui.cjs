@@ -1,0 +1,27 @@
+const { chromium } = require('playwright');
+const seed = require('/tmp/seed.json');
+(async () => {
+  const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1200, height: 900 } });
+  const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => m.type() === 'error' && errs.push(m.text()));
+  const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };
+  await p.goto('http://localhost:3000/login');
+  await p.fill('input[name=email]', seed.email); await p.fill('input[name=password]', 'wrong-pass'); await p.click('button');
+  await p.waitForSelector('.err'); ok(/Invalid/.test(await p.textContent('.err')), 'bad password rejected');
+  await p.fill('input[name=password]', seed.password); await p.click('button');
+  await p.waitForURL('**/dashboard'); ok(true, 'login -> dashboard');
+  ok((await p.textContent('body')).includes('Problem App'), 'dashboard lists project');
+  await p.screenshot({ path: '/tmp/dashboard.png' });
+  await p.click('a[href^="/projects/"]:has-text("Problem App")'); await p.waitForURL('**/projects/*');
+  await p.click('text=Run agents'); await p.waitForURL('**/runs/*');
+  ok(true, 'run started from UI');
+  await p.waitForSelector('text=Launch readiness', { timeout: 60000 }); ok(true, 'report rendered after live run completed');
+  await p.screenshot({ path: '/tmp/run.png', fullPage: true });
+  ok((await p.textContent('body')).includes('Action checklist'), 'checklist table present');
+  await p.goto('http://localhost:3000/projects/new');
+  await p.fill('input[name=name]', 'X'); await p.fill('input[name=repoUrl]', 'http://10.0.0.1/a/b'); await p.click('form.form button');
+  await p.waitForSelector('.err'); ok(true, 'private/non-https repo rejected: ' + (await p.textContent('.err')));
+  await p.goto('http://localhost:3000/billing'); await p.click('text=Switch to Pro'); await p.waitForURL('**/billing');
+  ok((await p.textContent('body')).includes('Current plan'), 'plan switch works');
+  ok(errs.length === 0, 'no browser console errors ' + JSON.stringify(errs));
+  await b.close();
+})();
