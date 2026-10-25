@@ -22,6 +22,8 @@ export interface WorkerOptions {
   /** Override for tests; defaults to a provider chosen from env keys */
   llmFactory?: () => LLM;
   log?: (msg: string) => void;
+  /** Set false for serverless use: no background polling loop, drive it with tick() */
+  loop?: boolean;
 }
 
 export interface WorkerHandle {
@@ -105,7 +107,7 @@ export function startWorker(opts: WorkerOptions): WorkerHandle {
     }
   }
 
-  const loop = (async () => {
+  const loop = opts.loop === false ? Promise.resolve() : (async () => {
     while (!stopped) {
       if (inflight.size < config.concurrency) {
         const claim = await claimOne();

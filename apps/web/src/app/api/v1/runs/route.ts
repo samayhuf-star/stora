@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { LimitError, enqueueRun, getProject, listRuns, type RunGoal } from '@stora-sh/db';
 import { authApi } from '@/lib/auth';
-import { getDb } from '@/lib/server';
+import { drainQueue, getDb } from '@/lib/server';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 const GOALS: RunGoal[] = ['full_audit', 'compliance', 'aso', 'listing'];
 
 export async function GET(req: Request) {
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
   if (!(await getProject(db, a.orgId, body.projectId).catch(() => null))) return NextResponse.json({ error: 'project not found' }, { status: 404 });
   try {
     const run = await enqueueRun(db, { orgId: a.orgId, projectId: body.projectId, createdBy: a.userId, goal });
+    after(() => drainQueue());
     return NextResponse.json({ run: { id: run.id, status: run.status } }, { status: 201 });
   } catch (e) {
     if (e instanceof LimitError) return NextResponse.json({ error: e.message }, { status: 402 });

@@ -1,6 +1,9 @@
 import { execFile } from 'node:child_process';
 import { mkdir, rm } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { x as untar } from 'tar';
 
 const PRIVATE_HOST = /^(localhost|.*\.localhost|.*\.local|.*\.internal|metadata\.google\.internal)$/i;
 const PRIVATE_IPV4 = /^(0\.|10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
@@ -54,6 +57,38 @@ function git(args: string[], opts: { timeoutMs: number; signal?: AbortSignal }):
   });
 }
 
+const MAX_TARBALL_BYTES = 150 * 1024 * 1024;
+
+/**
+ * GitHub-only fallback for runtimes without a git binary (e.g. serverless): download the
+ * branch tarball over https and extract regular files and directories only. Symlinks,
+ * hardlinks and devices are dropped; the size is capped on the wire.
+ */
+async function fetchGithubTarball(url: string, branch: string | null, dest: string, timeoutMs: number, signal?: AbortSignal) {
+  const u = new URL(url);
+  if (u.hostname !== 'github.com') throw new RepoUrlError('Tarball mode only supports github.com repositories');
+  const [owner, repoRaw] = u.pathname.split('/').filter(Boolean);
+  const repo = repoRaw?.replace(/\.git$/, '');
+  if (!owner || !repo || !/^[\w.-]+$/.test(owner) || !/^[\w.-]+$/.test(repo)) throw new RepoUrlError('Unrecognised GitHub repository URL');
+  const ref = branch ? `refs/heads/${branch}` : 'HEAD';
+  const sig = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(signal ? [signal] : [])]);
+  let res = await fetch(`https://codeload.github.com/${owner}/${repo}/tar.gz/${ref}`, { signal: sig, redirect: 'follow' });
+  if (res.status === 404 && branch) res = await fetch(`https://codeload.github.com/${owner}/${repo}/tar.gz/HEAD`, { signal: sig, redirect: 'follow' });
+  if (!res.ok || !res.body) throw new Error(`Could not download repository (HTTP ${res.status}); it must be public`);
+  let seen = 0;
+  const cap = new Transform({
+    transform(chunk, _enc, cb) {
+      seen += chunk.length;
+      cb(seen > MAX_TARBALL_BYTES ? new Error('Repository archive is too large') : null, chunk);
+    },
+  });
+  await pipeline(
+    Readable.fromWeb(res.body as never),
+    cap,
+    untar({ cwd: dest, strip: 1, filter: (_p, entry) => ['File', 'Directory'].includes((entry as { type: string }).type) })
+  );
+}
+
 export async function cloneRepo(opts: {
   url: string;
   branch: string;
@@ -74,6 +109,11 @@ export async function cloneRepo(opts: {
   ];
   await rm(opts.dest, { recursive: true, force: true });
   await mkdir(opts.dest, { recursive: true });
+  const wantTarball = process.env.STORA_CLONE_MODE === 'tarball' && !opts.allowLocal;
+  if (wantTarball) {
+    await fetchGithubTarball(url, branch, opts.dest, timeoutMs, opts.signal);
+    return;
+  }
   const base = [...proto, 'clone', '--depth', '1', '--single-branch', '--no-tags'];
   try {
     await git([...base, '--branch', branch, '--', url, opts.dest], { timeoutMs, signal: opts.signal });

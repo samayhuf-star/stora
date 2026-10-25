@@ -1,5 +1,6 @@
 'use server';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import {
   LimitError, createApiKey, createProject, createUserWithOrg, deleteApiKey, deleteProject,
@@ -7,7 +8,7 @@ import {
 } from '@stora-sh/db';
 import { validateRepoUrl } from '@stora-sh/agents';
 import { clearSession, hashPassword, requireSession, setSession, verifyPassword } from './auth';
-import { getDb } from './server';
+import { drainQueue, getDb } from './server';
 
 export interface FormState { error?: string; ok?: string; secret?: string; values?: Record<string, string> }
 const str = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
@@ -77,6 +78,7 @@ export async function startRun(f: FormData) {
   try {
     const run = await enqueueRun(await getDb(), { orgId: s.org.id, projectId: str(f, 'projectId'), createdBy: s.user.id, goal });
     runId = run.id;
+    after(() => drainQueue());
   } catch (e) {
     if (e instanceof LimitError) redirect(`/billing?limit=${encodeURIComponent(e.message)}`);
     throw e;

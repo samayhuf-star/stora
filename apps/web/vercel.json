@@ -1,0 +1,6 @@
+{
+  "framework": "nextjs",
+  "installCommand": "cd ../.. && pnpm install --no-frozen-lockfile --ignore-scripts",
+  "buildCommand": "cd ../.. && pnpm --filter @stora-sh/web... build",
+  "crons": [{ "path": "/api/cron/worker", "schedule": "0 3 * * *" }]
+}

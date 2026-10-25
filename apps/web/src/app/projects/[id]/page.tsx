@@ -8,6 +8,7 @@ import { Badge, Card } from '@/components/ui';
 import { removeProject, startRun } from '@/lib/actions';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // server action 'Run agents' drains the queue after responding
 const GOALS = [['full_audit', 'Full launch audit'], ['compliance', 'Compliance only'], ['aso', 'ASO keywords'], ['listing', 'Store listing copy']] as const;
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
